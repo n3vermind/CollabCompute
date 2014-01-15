@@ -1,5 +1,6 @@
 #include <string>
-#include <cstring>
+#include <cstdlib>
+#include <ctime>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
 #include <net/if.h>
