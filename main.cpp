@@ -1,9 +1,10 @@
 #include <iostream>
-
+#include <ctime>
 #include "Server.hpp"
 
 int main(int argc, char **argv) {
-    boost::asio::io_service io;
+	std::cout.setf( std::ios_base::unitbuf );
+	boost::asio::io_service io;
     std::string bootstrap;
     Server *s;
 
@@ -11,7 +12,6 @@ int main(int argc, char **argv) {
         s = new Server(io, 9999, std::string(argv[1]));
     else
         s = new Server(io, 9999);
-
     io.run();
     return 0;
 }
