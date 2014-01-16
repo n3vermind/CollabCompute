@@ -59,6 +59,7 @@ void Server::get_known_peers()
 
 void Server::add_peer(std::string peer)
 {
+	std::cout << "Adding new peer : " << peer << std::endl;
 	peers.push_back(peer);
 }
 

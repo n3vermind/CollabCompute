@@ -52,8 +52,10 @@ void Connection::read()
 				}
 				else if(state == GET_PEERS)
 				{
-					if(std::strcmp(data, END_OF_PEERS))
+					if(std::strcmp(data, END_OF_PEERS)) 
+					{
 						server->add_peer(std::string(data));
+					}
 					else 
 						state = AWAIT_QUERY;
 				}
@@ -67,7 +69,7 @@ void Connection::send_peers()
 	auto peers = server->get_peers();
 	for(auto i = peers.begin(); i < peers.end(); i++)
 	{
-		write(*(i+"\n"));
+		write(*i + "\n");
 	}
 	write(std::string(END_OF_PEERS));
 }
