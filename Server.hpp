@@ -1,3 +1,4 @@
+#pragma once
 #include <string>
 #include <iostream>
 #include <vector>
@@ -13,7 +14,8 @@ class Server
 {
     public:
         Server(boost::asio::io_service &io, short port, std::string bootstrap = "");
-		
+		void add_peer(std::string peer);		
+		std::vector<std::string> get_peers();
         
     private:
         void accept();

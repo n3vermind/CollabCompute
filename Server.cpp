@@ -7,7 +7,20 @@ Server::Server(boost::asio::io_service &io, short port, std::string bootstrap) :
 	get_known_peers();
     if(bootstrap != "")
         std::cout << "Bootstraping to " << bootstrap << std::endl;
-    accept();
+	for(auto i = peers.begin(); i != peers.end(); i++)
+	{
+		boost::asio::ip::tcp::resolver resolver(io);
+		auto endpoint = resolver.resolve({ *i, "9999"});
+		boost::asio::async_connect(socket,endpoint,
+				[this](boost::system::error_code ec, boost::asio::ip::tcp::resolver::iterator)
+				{
+					if(!ec)
+					{
+						std::make_shared<Connection>(std::move(socket), this)->start_out();
+					}
+				});
+	}
+	accept();
 }
 
 void Server::accept()
@@ -16,7 +29,7 @@ void Server::accept()
         [this](boost::system::error_code ec)
         {
             if(!ec)
-                std::make_shared<Connection>(std::move(socket))->start();
+                std::make_shared<Connection>(std::move(socket), this)->start_accept();
             accept();
         });
 }
@@ -41,4 +54,15 @@ void Server::get_known_peers()
 	}
 	if(peers.empty())
 		throw std::runtime_error("Couldn't find any peers in peers file\n");
+	std::cout << "End of known peers" << std::endl;
+}
+
+void Server::add_peer(std::string peer)
+{
+	peers.push_back(peer);
+}
+
+std::vector<std::string> Server::get_peers()
+{
+	return peers;
 }
