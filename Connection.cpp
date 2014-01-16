@@ -67,7 +67,7 @@ void Connection::read()
 void Connection::send_peers()
 {
 	auto peers = server->get_peers();
-	for(auto i = peers.begin(); i < peers.end(); i++)
+	for(auto i = peers.begin(); i != peers.end(); i++)
 	{
 		write(*i + "\n");
 	}

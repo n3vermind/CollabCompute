@@ -7,7 +7,8 @@ Server::Server(boost::asio::io_service &io, short port, std::string bootstrap) :
 	get_known_peers();
     if(bootstrap != "")
         std::cout << "Bootstraping to " << bootstrap << std::endl;
-	for(auto i = peers.begin(); i != peers.end(); i++)
+	auto current = get_peers();
+	for(auto i = current.begin(); i != current.end(); i++)
 	{
 		boost::asio::ip::tcp::resolver resolver(io);
 		auto endpoint = resolver.resolve({ *i, "9999"});
@@ -36,7 +37,6 @@ void Server::accept()
 
 void Server::get_known_peers()
 {
-	
 	boost::filesystem::path peers_file("peers");
 	if(!boost::filesystem::exists(peers_file) || !boost::filesystem::is_regular_file(peers_file))
 		throw std::runtime_error("peers file is missing");
@@ -49,7 +49,7 @@ void Server::get_known_peers()
 		if(std::string(address).size() > 1)
 		{
 			std::cout << "Peer found in peers file: " << address << "\n";
-			peers.push_back(std::string(address));
+			peers.insert(std::string(address));
 		}
 	}
 	if(peers.empty())
@@ -59,11 +59,15 @@ void Server::get_known_peers()
 
 void Server::add_peer(std::string peer)
 {
-	std::cout << "Adding new peer : " << peer << std::endl;
-	peers.push_back(peer);
+	if(!peers.count(peer))
+	{
+		boost::algorithm::trim(peer);
+		std::cout << "Adding new peer : " << peer << std::endl;
+		peers.insert(peer);
+	}
 }
 
-std::vector<std::string> Server::get_peers()
+std::set<std::string> Server::get_peers()
 {
 	return peers;
 }
