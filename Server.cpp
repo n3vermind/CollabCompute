@@ -2,7 +2,7 @@
 
 Server::Server(boost::asio::io_service &io, short port, std::string bootstrap) :
     acceptor(io, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port)),
-    socket(io), hash(Identify::getId())
+    socket(io), hash(Identify::getId()), resolver(io), port(port)
 {
 	get_known_peers();
     if(bootstrap != "")
@@ -10,8 +10,7 @@ Server::Server(boost::asio::io_service &io, short port, std::string bootstrap) :
 	auto current = get_peers();
 	for(auto i = current.begin(); i != current.end(); i++)
 	{
-		boost::asio::ip::tcp::resolver resolver(io);
-		auto endpoint = resolver.resolve({ *i, "9999"});
+		auto endpoint = resolver.resolve({ *i, std::to_string(port)});
 		boost::asio::async_connect(socket,endpoint,
 				[this](boost::system::error_code ec, boost::asio::ip::tcp::resolver::iterator)
 				{
@@ -71,3 +70,42 @@ std::set<std::string> Server::get_peers()
 {
 	return peers;
 }
+
+std::string Server::get_hash()
+{
+	return hash;
+}
+
+std::string Server::get_next_hash()
+{
+	return next_hash;
+}
+
+void Server::set_next_hash(std::string str)
+{
+	next_hash = str;	
+}
+
+void Server::close_previous(Connection* new_prev)
+{
+	prev_con = std::shared_ptr<Connection>(new_prev);
+}
+
+void Server::set_next_connection(Connection* con)
+{
+	next_con = std::shared_ptr<Connection>(con);
+}
+
+void Server::ask_for_next(std::string address, std::string peer_hash)
+{
+	auto endpoint = resolver.resolve({ address, std::to_string(port)});
+	boost::asio::async_connect(socket,endpoint,
+			[this,address,peer_hash](boost::system::error_code ec, boost::asio::ip::tcp::resolver::iterator)
+			{
+				if(!ec)
+				{
+					std::make_shared<Connection>(std::move(socket), this)->start_ask(address, peer_hash);
+				}
+			});
+}
+

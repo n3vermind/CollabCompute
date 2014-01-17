@@ -1,5 +1,8 @@
 #pragma once
 #include <boost/asio.hpp>
+#include <boost/algorithm/string.hpp>
+#include <queue>
+#include <vector>
 
 #include "Server.hpp"
 
@@ -12,19 +15,25 @@ class Connection :
         Connection(boost::asio::ip::tcp::socket s, Server* server);
         void start_accept();
 		void start_out();
+		void start_ask(std::string address, std::string hash);
+		void end();
     private:
         void read();
 		void write(std::string write_data);
-		void send_peers();
-		void get_peers();
+		//void send_peers();
+		//void get_peers();
+		void get_next();
+		bool is_good_placement(std::string a, std::string b, std::string peer);
 
         boost::asio::ip::tcp::socket socket;
 		Server* server;
         enum { max_msg = 1024};
         char data[max_msg];
-		enum connection_state { AWAIT_QUERY, GET_PEERS };
-		connection_state state;
-		const char* QUERY_SEND_PEERS = "Y i need peers mate?";
-		const char* END_OF_PEERS = "So peers ended mate. Get lost.";
+        std::string current_msg;
+        std::queue< std::string > msg_queue;
+        const std::string msg_split_char = "~";
+		enum states { GET_HASH, AWAIT_QUERY, PREVIOUS, LOOKING_FOR_SPOT, WAITING_FOR_SPOT, GET_PEERS };
+		const std::string ACCEPTED_PREVIOUS = "OK";
+		states state;
 };
 
