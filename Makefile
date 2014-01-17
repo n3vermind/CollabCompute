@@ -1,4 +1,4 @@
-CC=g++-4.7
+CC=g++
 CFLAGS=--std=c++11 -lboost_system -lboost_filesystem
 SOURCES=Server.cpp Connection.cpp Identify.cpp sha1.cpp main.cpp
 OBJECTS=$(SOURCES:.cpp=.o)
