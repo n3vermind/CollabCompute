@@ -5,7 +5,7 @@
 #include <sys/ioctl.h>
 #include <net/if.h>
 
-#include "sha1.h"
+#include "sha1.hpp"
 
 class Identify {
     public:
