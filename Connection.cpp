@@ -1,33 +1,42 @@
-#include <iostream>
-#include <string>
-
 #include "Connection.hpp"
 
 Connection::Connection(boost::asio::ip::tcp::socket s, Server* _server) :
     socket(std::move(s)), server(_server)
 {}
 
-void Connection::start_accept()
+void Connection::start_accept() // incomming connection
 {
 	state = GET_HASH;
 	std::cout << socket.remote_endpoint().address() << " connected" << std::endl;
     read();
 }
-
-void Connection::start_out()
+//outgoing connections:
+void Connection::start_out() // initial connection to network, looking for good place in ring
 {
+	write(server->get_hash());
 	get_next();
 	read();
 }
-void Connection::start_ask(std::string address, std::string hash)
+void Connection::start_ask(std::string address, std::string hash) // connection for broadcasting a new peer
 {
+	write(server->get_hash());
 	if(is_good_placement(server->get_next_hash(),server->get_hash(), hash)){
 		// tell server to connect with that peer 
+		server->change_prev(address, hash);
 	} else {
+		// keep on asking
 		server->ask_for_next(address,hash);
 	}
+	end();
+}
+void Connection::start_prev(std::string address, std::string hash)
+{
+	write(server->get_hash());
+	write(std::to_string(IM_YOUR_NEXT));
+	state = AWAIT_QUERY;
 	read();
 }
+
 void Connection::write(std::string write_data)
 {
 	write_data += msg_split_char;
@@ -70,13 +79,13 @@ void Connection::read()
     				switch(state)
 					{
 						case AWAIT_QUERY:
-							switch(msg_queue.front()[0])
+							switch(states(msg_queue.front()[0]-'0'))
 							{
 								case PREVIOUS:
-									state = PREVIOUS;
+									handle_prev();
 									break;
-								case LOOKING_FOR_SPOT:
-									state = LOOKING_FOR_SPOT;
+								case IM_YOUR_NEXT:
+									get_next();
 									break;
 								case WAITING_FOR_SPOT:
 									state = WAITING_FOR_SPOT;
@@ -85,25 +94,9 @@ void Connection::read()
 									break;
 							}
 							break;
-						case GET_HASH: // GET_HASH only occurs in connection with our next.
-							server->set_next_hash(msg_queue.front());
+						case GET_HASH:
+							con_hash = msg_queue.front();
 							state = AWAIT_QUERY;
-							break;
-						case PREVIOUS: //check if current endpoint fits as our previous. If not then we send broadcast in order to find proper next for him.
-							if(is_good_placement(server->get_next_hash(), server->get_hash(), msg_queue.front()))
-							{
-								server->close_previous(this);
-								write(ACCEPTED_PREVIOUS);
-							} 
-							else 
-							{
-								std::string address = socket.remote_endpoint().address().to_string();
-								server->ask_for_next(address, msg_queue.front());
-								end();
-							}
-							
-							break;	
-						case LOOKING_FOR_SPOT:
 							break;
 						case WAITING_FOR_SPOT:
 							if(msg_queue.front() == ACCEPTED_PREVIOUS)
@@ -139,20 +132,39 @@ void Connection::get_peers()
 void Connection::get_next() // ask our endpoint if he is our next. Connection will shutdown if hes not and endpoint will broadcast
 {							// through network that we need a friend. 
 	write(std::string(std::to_string(PREVIOUS)));
-	write(server->get_hash());
 	state = WAITING_FOR_SPOT;
 }
-
+void Connection::handle_prev()
+{
+	//check if current endpoint fits as our previous. If not then we send broadcast in order to find proper next for him.
+	std::cout<<"handling prev" << std::endl;
+	if(is_good_placement(server->get_next_hash(), server->get_hash(), con_hash))
+	{
+		server->close_previous(this);
+		write(ACCEPTED_PREVIOUS);
+		std::cout<<"not my prev" << std::endl;
+	} 
+	else 
+	{
+		std::cout<<"not my prev" << std::endl;
+		std::string address = socket.remote_endpoint().address().to_string();
+		server->ask_for_next(address, msg_queue.front());
+		end();
+	}
+}
 void Connection::end()
 {
 	boost::system::error_code ec;
 	socket.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
-	socket.close();
 }
 bool Connection::is_good_placement(std::string a, std::string b, std::string peer)
 {
-	if((a < b && a <= peer && peer <= b)||
-		(a > b && (a >= peer || peer >= b)))
+	if((a <= b && a <= peer && peer <= b)||
+		(a >= b && (a >= peer || peer >= b)))
 		return true;
 	return false;
+}
+std::string Connection::get_hash()
+{
+	return con_hash;
 }

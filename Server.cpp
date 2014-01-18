@@ -1,25 +1,17 @@
 #include "Server.hpp"
 
-Server::Server(boost::asio::io_service &io, short port, std::string bootstrap) :
+Server::Server(boost::asio::io_service &io, short port, std::string bootstrap, bool init) :
     acceptor(io, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port)),
-    socket(io), hash(Identify::getId()), resolver(io), port(port)
+    socket(io), hash(Identify::getId()), resolver(io), port(port), init(init)
 {
+	prev_con = NULL;
+	next_con = NULL;
 	get_known_peers();
-    if(bootstrap != "")
+    if(bootstrap != "") {
         std::cout << "Bootstraping to " << bootstrap << std::endl;
-	auto current = get_peers();
-	for(auto i = current.begin(); i != current.end(); i++)
-	{
-		auto endpoint = resolver.resolve({ *i, std::to_string(port)});
-		boost::asio::async_connect(socket,endpoint,
-				[this](boost::system::error_code ec, boost::asio::ip::tcp::resolver::iterator)
-				{
-					if(!ec)
-					{
-						std::make_shared<Connection>(std::move(socket), this)->start_out();
-					}
-				});
-	}
+		find_next(bootstrap);
+	} else
+		find_next();
 	accept();
 }
 
@@ -78,21 +70,32 @@ std::string Server::get_hash()
 
 std::string Server::get_next_hash()
 {
-	return next_hash;
-}
-
-void Server::set_next_hash(std::string str)
-{
-	next_hash = str;	
+	if(init) 
+	{
+		init = false;
+		return hash;
+	}
+	if(next_con!=NULL){
+		return next_con->get_hash();
+	}else {
+		find_next();
+		get_next_hash();
+	}
 }
 
 void Server::close_previous(Connection* new_prev)
 {
+	std::cout << "Picked new prev." << std::endl;
+	if(prev_con)
+		prev_con->end();
+	pierdolekurwa.push_back(prev_con);
 	prev_con = std::shared_ptr<Connection>(new_prev);
 }
 
 void Server::set_next_connection(Connection* con)
 {
+	std::cout << "Picked new next." << std::endl;
+	pierdolekurwa.push_back(next_con);
 	next_con = std::shared_ptr<Connection>(con);
 }
 
@@ -105,6 +108,38 @@ void Server::ask_for_next(std::string address, std::string peer_hash)
 				if(!ec)
 				{
 					std::make_shared<Connection>(std::move(socket), this)->start_ask(address, peer_hash);
+				}
+			});
+}
+
+void Server::change_prev(std::string address, std::string peer_hash)
+{
+
+	auto endpoint = resolver.resolve({ address, std::to_string(port)});
+	boost::asio::async_connect(socket,endpoint,
+			[this,address,peer_hash](boost::system::error_code ec, boost::asio::ip::tcp::resolver::iterator)
+			{
+				if(!ec)
+				{
+					std::make_shared<Connection>(std::move(socket), this)->start_prev(address, peer_hash);
+				}
+			});
+}
+void Server::find_next()
+{
+	auto current = get_peers();
+	find_next(*current.begin());	
+}
+void Server::find_next(std::string address)
+{
+	auto endpoint = resolver.resolve({ address, std::to_string(port)});
+	boost::asio::async_connect(socket,endpoint,
+			[this](boost::system::error_code ec, boost::asio::ip::tcp::resolver::iterator)
+			{
+				if(!ec)
+				{
+					std::make_shared<Connection>(std::move(socket), this)->start_out();
+						//std::cout << socket.remote_endpoint().address() << std::endl;
 				}
 			});
 }
