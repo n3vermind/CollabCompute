@@ -167,9 +167,10 @@ void Connection::handle_prev()
 	std::cout<<"handling prev" << std::endl;
 	if(is_good_placement(server->get_next_hash(), server->get_hash(), con_hash))
 	{
-		server->close_previous(this);
+		//server->close_previous(this);
 		write(ACCEPTED_PREVIOUS);
 		std::cout<<" my prev" << std::endl;
+		state = AWAIT_QUERY;
 	} 
 	else 
 	{

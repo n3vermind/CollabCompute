@@ -13,7 +13,7 @@ Server::Server(boost::asio::io_service &io, short port, std::string bootstrap, b
 		find_next(bootstrap);
 	} else
 		find_next();
-	timer.async_wait(boost::bind(&Server::console, this));
+	//timer.async_wait(boost::bind(&Server::console, this));
 	accept();
 }
 
