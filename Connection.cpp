@@ -13,6 +13,7 @@ void Connection::start_accept() // incomming connection
 //outgoing connections:
 void Connection::start_out() // initial connection to network, looking for good place in ring
 {
+	std::cout << "dqqd\n";
 	write(server->get_hash());
 	get_next();
 	read();
@@ -20,6 +21,7 @@ void Connection::start_out() // initial connection to network, looking for good 
 void Connection::start_ask(std::string address, std::string hash) // connection for broadcasting a new peer
 {
 	write(server->get_hash());
+	end();
 	if(is_good_placement(server->get_next_hash(),server->get_hash(), hash)){
 		// tell server to connect with that peer 
 		server->change_prev(address, hash);
@@ -27,7 +29,6 @@ void Connection::start_ask(std::string address, std::string hash) // connection 
 		// keep on asking
 		server->ask_for_next(address,hash);
 	}
-	end();
 }
 void Connection::start_prev(std::string address, std::string hash)
 {
@@ -36,7 +37,13 @@ void Connection::start_prev(std::string address, std::string hash)
 	state = AWAIT_QUERY;
 	read();
 }
-
+void Connection::start_send_peers(int ttl)
+{
+	write(server->get_hash());
+	write(std::to_string(PEER));
+	write(socket.local_endpoint().address().to_string());
+	end();
+}
 void Connection::write(std::string write_data)
 {
 	write_data += msg_split_char;
@@ -91,6 +98,11 @@ void Connection::read()
 									state = WAITING_FOR_SPOT;
 								case GET_PEERS:
 									state = GET_PEERS;
+									command_strings.clear();
+									break;
+								case PEER:
+									state = PEER;
+									command_strings.clear();
 									break;
 							}
 							break;
@@ -102,9 +114,24 @@ void Connection::read()
 							if(msg_queue.front() == ACCEPTED_PREVIOUS)
 							{
 								server->set_next_connection(this);
+								send_get_peers(socket.local_endpoint().address().to_string(),50);
 							}
+							state = AWAIT_QUERY;
 							break;
 						case GET_PEERS:
+							command_strings.push_back(msg_queue.front());
+							if(command_strings.size() == 2)
+							{
+								int ttl = std::stoi(command_strings[1]);
+								send_peers(command_strings[0], ttl);
+								if(ttl>0)
+									send_get_peers(command_strings[0],ttl-1);
+								state = AWAIT_QUERY;
+							} 
+							break;
+						case PEER:
+							server->add_peer(msg_queue.front());
+							state = AWAIT_QUERY;
 							break;
     				}
 			    	msg_queue.pop();
@@ -142,7 +169,7 @@ void Connection::handle_prev()
 	{
 		server->close_previous(this);
 		write(ACCEPTED_PREVIOUS);
-		std::cout<<"not my prev" << std::endl;
+		std::cout<<" my prev" << std::endl;
 	} 
 	else 
 	{
@@ -151,6 +178,7 @@ void Connection::handle_prev()
 		server->ask_for_next(address, msg_queue.front());
 		end();
 	}
+	state = AWAIT_QUERY;
 }
 void Connection::end()
 {
@@ -167,4 +195,15 @@ bool Connection::is_good_placement(std::string a, std::string b, std::string pee
 std::string Connection::get_hash()
 {
 	return con_hash;
+}
+
+void Connection::send_peers(std::string address, int ttl)
+{
+	server->send_peers(address, ttl);
+}
+void Connection::send_get_peers(std::string address, int ttl)
+{
+	write(std::to_string(GET_PEERS));
+	write(address);
+	write(std::to_string(ttl));
 }

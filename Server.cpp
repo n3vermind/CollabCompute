@@ -2,7 +2,8 @@
 
 Server::Server(boost::asio::io_service &io, short port, std::string bootstrap, bool init) :
     acceptor(io, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port)),
-    socket(io), hash(Identify::getId()), resolver(io), port(port), init(init)
+    socket(io), hash(Identify::getId()), resolver(io), port(port), init(init),
+	timer(io, boost::posix_time::seconds(1))
 {
 	prev_con = NULL;
 	next_con = NULL;
@@ -12,7 +13,19 @@ Server::Server(boost::asio::io_service &io, short port, std::string bootstrap, b
 		find_next(bootstrap);
 	} else
 		find_next();
+	timer.async_wait(boost::bind(&Server::console, this));
 	accept();
+}
+
+void Server::console()
+{
+	std::cout << "console" << std::endl;
+	std::string in;
+	std::cin >> in;
+	if(in == "get_peers")
+		ask_for_peers(number_of_peers);
+	timer.expires_at(timer.expires_at() + boost::posix_time::seconds(1));
+	timer.async_wait(boost::bind(&Server::console, this));
 }
 
 void Server::accept()
@@ -65,6 +78,9 @@ std::set<std::string> Server::get_peers()
 
 std::string Server::get_hash()
 {
+	std::cout<< "aaa" << std::endl;
+	std::cout<< hash << std::endl;
+	
 	return hash;
 }
 
@@ -139,8 +155,28 @@ void Server::find_next(std::string address)
 				if(!ec)
 				{
 					std::make_shared<Connection>(std::move(socket), this)->start_out();
-						//std::cout << socket.remote_endpoint().address() << std::endl;
 				}
 			});
 }
 
+void Server::send_peers(std::string address, int ttl)
+{
+	auto endpoint = resolver.resolve({ address, std::to_string(port)});
+	boost::asio::async_connect(socket,endpoint,
+			[this,ttl](boost::system::error_code ec, boost::asio::ip::tcp::resolver::iterator)
+			{
+				if(!ec)
+				{
+					std::make_shared<Connection>(std::move(socket), this)->start_send_peers(ttl - 1);
+				}
+			});
+}
+
+void Server::ask_for_peers(int ttl)
+{
+	verify_next();
+	next_con->send_get_peers(socket.local_endpoint().address().to_string(),ttl);
+}
+void Server::verify_next()
+{
+}
