@@ -45,5 +45,5 @@ class Server
 		boost::asio::deadline_timer timer;
 		std::set< std::string > peers;
 		std::shared_ptr<Connection> next_con,prev_con;
-		std::vector<std::shared_ptr<Connection> > pierdolekurwa;
+		std::vector<std::shared_ptr<Connection> > connections;
 };

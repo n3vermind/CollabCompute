@@ -104,14 +104,14 @@ void Server::close_previous(Connection* new_prev)
 	std::cout << "Picked new prev." << std::endl;
 	if(prev_con)
 		prev_con->end();
-	pierdolekurwa.push_back(prev_con);
+	connections.push_back(prev_con);
 	prev_con = std::shared_ptr<Connection>(new_prev);
 }
 
 void Server::set_next_connection(Connection* con)
 {
 	std::cout << "Picked new next." << std::endl;
-	pierdolekurwa.push_back(next_con);
+	connections.push_back(next_con);
 	next_con = std::shared_ptr<Connection>(con);
 }
 
