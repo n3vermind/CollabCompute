@@ -18,15 +18,13 @@ class Server
 {
     public:
         Server(boost::asio::io_service &io, short port, std::string bootstrap = "");
-		void add_peer(std::string peer);		
+		void add_peer(std::string peer);
 		std::set<std::string> get_peers();
 		std::string get_next_hash();
         bool restore_next();
 		void change_prev(std::shared_ptr<Connection> new_prev);
 		void change_next(std::shared_ptr<Connection> con);
 		std::string get_hash();
-		void send_peers(std::string address, int ttl);
-		void ask_for_peers(int ttl);
     private:
         void accept();
  		void get_known_peers();
