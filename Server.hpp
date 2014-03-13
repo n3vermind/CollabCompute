@@ -11,7 +11,9 @@
 
 #include "Connection.hpp"
 #include "Identify.hpp"
+#include "Console.hpp"
 
+class Console;
 class Connection;
 
 class Server
