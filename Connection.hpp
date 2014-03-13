@@ -44,5 +44,6 @@ class Connection :
 		enum packets { GET_HASH, AWAIT_QUERY, PREVIOUS, ACCEPTED, PROPOSED };
 		std::vector< std::string > command_strings;
 		packets state;
+        bool outgoing;
 };
 

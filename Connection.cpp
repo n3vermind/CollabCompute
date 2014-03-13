@@ -5,7 +5,7 @@
     polaczenia, ustawia stan na GET_HASH
 */
 Connection::Connection(boost::asio::ip::tcp::socket s, Server *_server) :
-    socket(std::move(s)), server(_server), state(GET_HASH)
+    socket(std::move(s)), server(_server), state(GET_HASH), outgoing(false)
 {
     std::cout << "Created connection" << std::endl;
 }
@@ -15,7 +15,7 @@ Connection::Connection(boost::asio::ip::tcp::socket s, Server *_server) :
     polaczenia, ustawia stan na GET_HASH
 */
 Connection::Connection(boost::asio::ip::tcp::socket *s, Server *_server) :
-     socket(s->get_io_service()), server(_server), state(GET_HASH)
+     socket(s->get_io_service()), server(_server), state(GET_HASH), outgoing(true)
 {
     std::cout << "Created connection" << std::endl;
 }
@@ -111,23 +111,22 @@ void Connection::read()
 								case PREVIOUS:
 									handle_prev();
 									break;
-                                case ACCEPTED:
-                                    server->change_next(shared_from_this());
-                                    break;
 							}
 							break;
 						case GET_HASH:
 							con_hash = msg_queue.front();
-							state = AWAIT_QUERY;
                             server->add_peer(get_address());
+                            if(outgoing)
+                                state = PROPOSED;
+                            else
+    							state = AWAIT_QUERY;
 							break;
                         case PROPOSED:
-                            if(msg_queue.front().length() == 0 && 
-                                msg_queue.front()[0]-'0' == ACCEPTED) {
+                            if(msg_queue.front().length() == 1 && 
+                                msg_queue.front()[0]-'0' == ACCEPTED)
                                 server->change_next(shared_from_this());
-                            } else {
+                            else
                                 server->connect_to(msg_queue.front());
-                            }
                             break;
     				}
 			    	msg_queue.pop();
