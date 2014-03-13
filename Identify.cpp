@@ -8,7 +8,7 @@ std::string Identify::getId()
     char hex[41], buffer[1024];
     unsigned char hash[20];
 
-    s = socket(AF_INET, SOCK_DGRAM, 0);
+/*    s = socket(AF_INET, SOCK_DGRAM, 0);
 
     ifc.ifc_len = sizeof(buffer);
     ifc.ifc_buf = buffer;
@@ -25,7 +25,7 @@ std::string Identify::getId()
             return std::string(hex);
         }
     }
-
+*/
     srand(time(NULL));
     std::string id = std::to_string(rand());
     sha1::calc(id.c_str(), id.length(), hash);

@@ -14,20 +14,20 @@ class Connection :
     public std::enable_shared_from_this<Connection>
 {
     public:
-        Connection(boost::asio::ip::tcp::socket s, Server* server);
-        void start_accept();
-		void start_out();
-		void start_ask(std::string address, std::string hash);
+        Connection(boost::asio::ip::tcp::socket s, Server *_server);
+        Connection(boost::asio::ip::tcp::socket *s, Server *_server);
+        ~Connection();
+        void init(boost::asio::ip::tcp::resolver::iterator endpoint);
+        void start(bool propose = false);
 		void start_prev(std::string address, std::string hash);
 		void start_send_peers(int ttl);
 		void send_get_peers(std::string address, int ttl);
+        std::string get_address();
 		std::string get_hash();
 		void end();
     private:
         void read();
 		void write(std::string write_data);
-		//void send_peers();
-		//void get_peers();
 		void get_next();
 		void handle_prev();
 		void send_peers(std::string address, int ttl);
@@ -41,9 +41,8 @@ class Connection :
         std::string current_msg;
         std::queue< std::string > msg_queue;
         const std::string msg_split_char = "~";
-		enum states { GET_HASH, AWAIT_QUERY, PREVIOUS, IM_YOUR_NEXT, WAITING_FOR_SPOT, GET_PEERS, PEER };
+		enum packets { GET_HASH, AWAIT_QUERY, PREVIOUS, ACCEPTED };
 		std::vector< std::string > command_strings;
-		const std::string ACCEPTED_PREVIOUS = "OK";
-		states state;
+		packets state;
 };
 

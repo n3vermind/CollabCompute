@@ -1,44 +1,44 @@
 #include "Server.hpp"
 
-Server::Server(boost::asio::io_service &io, short port, std::string bootstrap, bool init) :
+/*
+    Tworzy obiekt Server, jezeli bootstrap == "" podlacza sie do sieci
+    do pierwszego hosta obecnego w pliku peers, wpp laczy sie z hostem
+    bootstrap. Oczekuje na polaczenia przychodzace na porcie 9999
+*/
+Server::Server(boost::asio::io_service &io, short port, std::string bootstrap) :
     acceptor(io, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port)),
-    socket(io), hash(Identify::getId()), resolver(io), port(port), init(init),
-	timer(io, boost::posix_time::seconds(1))
+    socket(io), hash(Identify::getId()), resolver(io), port(port)
 {
-	prev_con = NULL;
-	next_con = NULL;
+    std::cout << "Hash : " << hash << std::endl;
 	get_known_peers();
     if(bootstrap != "") {
         std::cout << "Bootstraping to " << bootstrap << std::endl;
-		find_next(bootstrap);
+		connect_to(bootstrap);
 	} else
 		find_next();
-	//timer.async_wait(boost::bind(&Server::console, this));
 	accept();
 }
 
-void Server::console()
-{
-	std::cout << "console" << std::endl;
-	std::string in;
-	std::cin >> in;
-	if(in == "get_peers")
-		ask_for_peers(number_of_peers);
-	timer.expires_at(timer.expires_at() + boost::posix_time::seconds(1));
-	timer.async_wait(boost::bind(&Server::console, this));
-}
-
+/*
+    Funckja wywolywana asynchronicznie dla przychodzacego polaczenia,
+    tworzy nowy obiekt Connection i ponownie wywoluje async_accept
+*/
 void Server::accept()
 {
     acceptor.async_accept(socket, 
         [this](boost::system::error_code ec)
         {
-            if(!ec)
-                std::make_shared<Connection>(std::move(socket), this)->start_accept();
+            if(!ec) {
+                std::make_shared<Connection>(std::move(socket), this)->start();
+            }
             accept();
         });
 }
 
+/*
+    Wczytuje z pliku peers adresy znanych czlonkow sieci P2P i zapisuje 
+    je do std::set peers
+*/
 void Server::get_known_peers()
 {
 	boost::filesystem::path peers_file("peers");
@@ -52,15 +52,16 @@ void Server::get_known_peers()
 		peers_stream.getline(address,sizeof(address)/sizeof(char));
 		if(std::string(address).size() > 1)
 		{
-			std::cout << "Peer found in peers file: " << address << "\n";
-			peers.insert(std::string(address));
+			add_peer(std::string(address));
 		}
 	}
 	if(peers.empty())
 		throw std::runtime_error("Couldn't find any peers in peers file\n");
-	std::cout << "End of known peers" << std::endl;
 }
 
+/*
+    Dodaje peer do zbioru znanych hostow jezeli go jeszcze tam nie bylo 
+*/
 void Server::add_peer(std::string peer)
 {
 	if(!peers.count(peer))
@@ -71,112 +72,93 @@ void Server::add_peer(std::string peer)
 	}
 }
 
+/*
+    Zwraca std::set zawierajacy znanych czlonkow sieci
+*/
 std::set<std::string> Server::get_peers()
 {
 	return peers;
 }
 
+/*
+    Zwraca randomizowany przy uruchomieniu identyfikator serwera
+*/
 std::string Server::get_hash()
 {
-	std::cout<< "aaa" << std::endl;
-	std::cout<< hash << std::endl;
-	
 	return hash;
 }
 
+/*
+    Zwraca identyfikator naszego nastepnika w sieci, jezeli
+    utracilismy z nim polaczenie probojemy sie laczyc z kolejnymi
+    osobami z zapamietanych czlonkow sieci
+*/
 std::string Server::get_next_hash()
 {
-	if(init) 
-	{
-		init = false;
-		return hash;
-	}
-	if(next_con!=NULL){
-		return next_con->get_hash();
-	}else {
-		find_next();
-		get_next_hash();
-	}
+    auto ptr = next_con.lock();
+    if(ptr)
+        return ptr->get_hash();
+    if(!restore_next())
+        return hash;
+    return get_next_hash();
 }
 
-void Server::close_previous(Connection* new_prev)
+/*
+    Jezeli jestesmy ostatnia znana osoba w sieci zwraca false,
+    wpp nawiazuje polaczenie z kolejnym zapamietanym hostem
+    i zwraca true
+*/
+bool Server::restore_next()
 {
-	std::cout << "Picked new prev." << std::endl;
-	if(prev_con)
-		prev_con->end();
-	connections.push_back(prev_con);
-	prev_con = std::shared_ptr<Connection>(new_prev);
+    if(peers.size() == 1) 
+        return false;
+    std::string address = *peers.begin();
+    connect_to(address);
+    peers.erase(peers.begin());
+    return true;
 }
 
-void Server::set_next_connection(Connection* con)
+/*
+    Konczy polaczenie z poprzednikiem i zapisuje na jego miejscu
+    nowe polaczenie - new_prev
+*/
+void Server::change_prev(std::shared_ptr<Connection> new_prev)
 {
+    auto ptr = prev_con.lock();
+	if(ptr) {
+		ptr->end();
+    }
+	prev_con = new_prev;
+}
+
+/*
+    Konczy polaczenie z nastepnikiem i zapisuje na jego miejscu
+    nowe polaczenie - con
+*/
+void Server::change_next(std::shared_ptr<Connection> con)
+{
+    auto ptr = next_con.lock();
+    if(ptr) {
+        ptr->end();
+    }
+	next_con = con;
 	std::cout << "Picked new next." << std::endl;
-	connections.push_back(next_con);
-	next_con = std::shared_ptr<Connection>(con);
 }
 
-void Server::ask_for_next(std::string address, std::string peer_hash)
-{
-	auto endpoint = resolver.resolve({ address, std::to_string(port)});
-	boost::asio::async_connect(socket,endpoint,
-			[this,address,peer_hash](boost::system::error_code ec, boost::asio::ip::tcp::resolver::iterator)
-			{
-				if(!ec)
-				{
-					std::make_shared<Connection>(std::move(socket), this)->start_ask(address, peer_hash);
-				}
-			});
-}
-
-void Server::change_prev(std::string address, std::string peer_hash)
-{
-
-	auto endpoint = resolver.resolve({ address, std::to_string(port)});
-	boost::asio::async_connect(socket,endpoint,
-			[this,address,peer_hash](boost::system::error_code ec, boost::asio::ip::tcp::resolver::iterator)
-			{
-				if(!ec)
-				{
-					std::make_shared<Connection>(std::move(socket), this)->start_prev(address, peer_hash);
-				}
-			});
-}
+/*
+    Laczy sie z hostem z std::set peers i pyta, czy jest jego
+    poprzednikiem
+*/
 void Server::find_next()
 {
-	auto current = get_peers();
-	find_next(*current.begin());	
-}
-void Server::find_next(std::string address)
-{
-	auto endpoint = resolver.resolve({ address, std::to_string(port)});
-	boost::asio::async_connect(socket,endpoint,
-			[this](boost::system::error_code ec, boost::asio::ip::tcp::resolver::iterator)
-			{
-				if(!ec)
-				{
-					std::make_shared<Connection>(std::move(socket), this)->start_out();
-				}
-			});
+    connect_to(*peers.begin());
 }
 
-void Server::send_peers(std::string address, int ttl)
+/*
+    Laczy sie z podanym adresem, tworzy nowy obiekt Connection
+*/
+void Server::connect_to(std::string address)
 {
-	auto endpoint = resolver.resolve({ address, std::to_string(port)});
-	boost::asio::async_connect(socket,endpoint,
-			[this,ttl](boost::system::error_code ec, boost::asio::ip::tcp::resolver::iterator)
-			{
-				if(!ec)
-				{
-					std::make_shared<Connection>(std::move(socket), this)->start_send_peers(ttl - 1);
-				}
-			});
-}
-
-void Server::ask_for_peers(int ttl)
-{
-	verify_next();
-	next_con->send_get_peers(socket.local_endpoint().address().to_string(),ttl);
-}
-void Server::verify_next()
-{
+	auto endpoint = resolver.resolve({ address, std::to_string(port) });
+    std::make_shared<Connection>(&socket, this)->init(endpoint);
 }
