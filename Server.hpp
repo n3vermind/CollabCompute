@@ -41,4 +41,5 @@ class Server
 		std::set< std::string > peers;
 		std::weak_ptr<Connection> next_con,prev_con;
 		std::vector<std::shared_ptr<Connection> > connections;
+		std::unique_ptr<Console> console;
 };

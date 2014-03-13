@@ -7,7 +7,8 @@
 */
 Server::Server(boost::asio::io_service &io, short port, std::string bootstrap) :
     acceptor(io, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port)),
-    socket(io), hash(Identify::getId()), resolver(io), port(port)
+    socket(io), hash(Identify::getId()), resolver(io), port(port),
+    console(std::unique_ptr<Console>(new Console(io, this)))
 {
     std::cout << "Hash : " << hash << std::endl;
 	get_known_peers();
