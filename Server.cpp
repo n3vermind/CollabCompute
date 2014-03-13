@@ -91,7 +91,7 @@ std::string Server::get_hash()
 /*
     Zwraca identyfikator naszego nastepnika w sieci, jezeli
     utracilismy z nim polaczenie probojemy sie laczyc z kolejnymi
-    osobami z zapamietanych czlonkow sieci
+    z zapamietanych czlonkow sieci
 */
 std::string Server::get_next_hash()
 {
@@ -101,6 +101,20 @@ std::string Server::get_next_hash()
     if(!restore_next())
         return hash;
     return get_next_hash();
+}
+
+/*
+    Zwraca adres naszego nastepnika, jezeli utracilismy z nim
+    polaczenie probojemy sie laczyc z kolejnymi z zapamietanych
+    czlonkow sieci
+*/
+std::string Server::get_next_address()
+{
+    auto ptr = next_con.lock();
+    if(ptr)
+        return ptr->get_address();
+    restore_next();
+    return get_next_address();
 }
 
 /*

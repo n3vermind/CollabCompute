@@ -91,7 +91,7 @@ void Connection::read()
                 data[length] = 0;
 				current_msg += std::string(data);
                 std::vector<std::string> split_vec;
-                boost::split(split_vec,current_msg,boost::is_any_of(msg_split_char), boost::token_compress_on);
+                boost::split(split_vec, current_msg, boost::is_any_of(msg_split_char), boost::token_compress_on);
 				for(int i = 0; i < split_vec.size()-1;i++) 
                 {
                     if(split_vec[i].size())
@@ -121,6 +121,14 @@ void Connection::read()
 							state = AWAIT_QUERY;
                             server->add_peer(get_address());
 							break;
+                        case PROPOSED:
+                            if(msg_queue.front().length() == 0 && 
+                                msg_queue.front()[0]-'0' == ACCEPTED) {
+                                server->change_next(shared_from_this());
+                            } else {
+                                server->connect_to(msg_queue.front());
+                            }
+                            break;
     				}
 			    	msg_queue.pop();
                 }
@@ -147,7 +155,7 @@ void Connection::handle_prev()
 	else 
 	{
 		std::cout << "Refused as prev" << std::endl;
-        // Answer with next person
+        write(server->get_next_address());
 		end();
 	}
 	state = AWAIT_QUERY;

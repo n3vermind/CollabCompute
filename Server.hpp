@@ -23,15 +23,16 @@ class Server
 		void add_peer(std::string peer);
 		std::set<std::string> get_peers();
 		std::string get_next_hash();
+        std::string get_next_address();
         bool restore_next();
 		void change_prev(std::shared_ptr<Connection> new_prev);
 		void change_next(std::shared_ptr<Connection> con);
 		std::string get_hash();
+		void connect_to(std::string address);
     private:
         void accept();
  		void get_known_peers();
 		void find_next();
-		void connect_to(std::string address);
 		short port;
         std::string hash;
         boost::asio::ip::tcp::acceptor acceptor;
