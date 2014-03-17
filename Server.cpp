@@ -141,7 +141,7 @@ void Server::change_prev(std::shared_ptr<Connection> new_prev)
 {
     auto ptr = prev_con.lock();
 	if(ptr) {
-		ptr->end();
+		ptr->redirect(new_prev->get_address());
     }
 	prev_con = new_prev;
 }

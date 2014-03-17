@@ -76,6 +76,21 @@ void Connection::write(std::string write_data)
 }
 
 /*
+    Konczy polaczenie po wyslaniu adresu, ktory zastapil 
+    to polaczenie.
+*/
+void Connection::redirect(std::string address)
+{
+    std::string data = std::to_string(REDIRECT) + msg_split_char + address + msg_split_char;
+    auto self(shared_from_this());
+    boost::asio::async_write(socket, boost::asio::buffer(data.c_str(), data.size()),
+        [this, self](boost::system::error_code ec, std::size_t length)
+        {
+            end();
+        });
+}
+
+/*
     Funkcja wywolywana przez async_read w momencie gdy mamy
     dane do przeczytania. Wokorzystujac std::vector dzieli
     pakiet wykorzystujac delimiter, a nastepnie parsuje
@@ -111,6 +126,9 @@ void Connection::read()
 								case PREVIOUS:
 									handle_prev();
 									break;
+                                case REDIRECT:
+                                    state = REDIRECT;
+                                    break;
 							}
 							break;
 						case GET_HASH:
@@ -123,11 +141,15 @@ void Connection::read()
 							break;
                         case PROPOSED:
                             if(msg_queue.front().length() == 1 && 
-                                msg_queue.front()[0]-'0' == ACCEPTED)
+                                msg_queue.front()[0]-'0' == ACCEPTED) {
                                 server->change_next(shared_from_this());
-                            else
+                                state = AWAIT_QUERY;
+                            } else {
                                 server->connect_to(msg_queue.front());
+                            }
                             break;
+                        case REDIRECT:
+                            server->connect_to(msg_queue.front());
     				}
 			    	msg_queue.pop();
                 }
@@ -153,8 +175,9 @@ void Connection::handle_prev()
 	} 
 	else 
 	{
-		std::cout << "Refused as prev" << std::endl;
-        write(server->get_next_address());
+        std::string address = server->get_next_address();
+		std::cout << "Refused as prev, redirecting to : " << address << std::endl;
+        write(address);
 		end();
 	}
 	state = AWAIT_QUERY;
