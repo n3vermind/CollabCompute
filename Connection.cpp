@@ -129,6 +129,11 @@ void Connection::read()
                                 case REDIRECT:
                                     state = REDIRECT;
                                     break;
+                                case VOLUNTEER:
+                                    break;
+                                case SEARCH:
+                                    state = SEARCH;
+                                    break;
 							}
 							break;
 						case GET_HASH:
@@ -150,6 +155,16 @@ void Connection::read()
                             break;
                         case REDIRECT:
                             server->connect_to(msg_queue.front());
+                        case SEARCH:
+                            command_strings.push_back(msg_queue.front());
+                            if(command_strings.size() == 2) {
+                                int ttl = std::stoi(command_strings[1]);
+                                if(ttl > 0)
+                                    server->search_for_volunteers(command_strings[0], ttl-1);
+                                command_strings.clear();
+                                state = AWAIT_QUERY;
+                            }
+                            break;
     				}
 			    	msg_queue.pop();
                 }
@@ -219,4 +234,14 @@ std::string Connection::get_hash()
 */
 std::string Connection::get_address() {
     return socket.remote_endpoint().address().to_string();
+}
+
+/*
+    Przekazuje pytanie o mozliwosc uruchomienia pliku
+    wykonywalnego do nastepnika
+*/
+void Connection::search_for_volunteers(std::string who, int ttl)
+{
+    write(std::to_string(SEARCH) + msg_split_char + who + msg_split_char
+         + std::to_string(ttl) + msg_split_char);
 }

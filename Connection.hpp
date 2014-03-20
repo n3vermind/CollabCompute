@@ -19,19 +19,16 @@ class Connection :
         ~Connection();
         void init(boost::asio::ip::tcp::resolver::iterator endpoint);
         void start(bool propose = false);
-		void start_prev(std::string address, std::string hash);
-		void start_send_peers(int ttl);
-		void send_get_peers(std::string address, int ttl);
         std::string get_address();
 		std::string get_hash();
 		void end();
         void redirect(std::string address);
+        void search_for_volunteers(std::string who, int ttl);
     private:
         void read();
 		void write(std::string write_data);
 		void get_next();
 		void handle_prev();
-		void send_peers(std::string address, int ttl);
 		bool is_good_placement(std::string a, std::string b, std::string peer);
 		
         boost::asio::ip::tcp::socket socket;
@@ -42,7 +39,8 @@ class Connection :
         std::string current_msg;
         std::queue< std::string > msg_queue;
         const std::string msg_split_char = "~";
-		enum packets { GET_HASH, AWAIT_QUERY, PREVIOUS, ACCEPTED, PROPOSED, REDIRECT };
+		enum packets { GET_HASH, AWAIT_QUERY, PREVIOUS, ACCEPTED, PROPOSED,
+            REDIRECT, VOLUNTEER, TRANSFERED, SEARCH };
 		std::vector< std::string > command_strings;
 		packets state;
         bool outgoing;

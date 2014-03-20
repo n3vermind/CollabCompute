@@ -22,6 +22,9 @@ void Console::handle_read(const boost::system::error_code& error, std::size_t le
 		case 0:
 			std::cout << server->get_next_hash() << std::endl;
 			break;
+        case 1:
+            server->search_for_volunteers("TESTING", 10);
+            break;
 	}
 	input_buffer.consume(input_buffer.size());
 	boost::asio::async_read_until(input, input_buffer, '\n',

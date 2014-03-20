@@ -29,6 +29,7 @@ class Server
 		void change_next(std::shared_ptr<Connection> con);
 		std::string get_hash();
 		void connect_to(std::string address);
+        void search_for_volunteers(std::string who, int ttl);
     private:
         void accept();
  		void get_known_peers();

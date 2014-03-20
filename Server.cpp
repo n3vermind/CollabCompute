@@ -177,3 +177,15 @@ void Server::connect_to(std::string address)
 	auto endpoint = resolver.resolve({ address, std::to_string(port) });
     std::make_shared<Connection>(&socket, this)->init(endpoint);
 }
+
+/*
+    Wysyla zapytanie o mozliwosc uruchomienia pliku wykonywalnego 
+*/
+void Server::search_for_volunteers(std::string who, int ttl)
+{
+    auto ptr = next_con.lock();
+    if(ptr)
+        return ptr->search_for_volunteers(who, ttl);
+    restore_next();
+    search_for_volunteers(who, ttl);
+}
