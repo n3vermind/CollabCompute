@@ -6,7 +6,7 @@
 */
 Connection::Connection(boost::asio::ip::tcp::socket s, Server *_server) :
     socket(std::move(s)), server(_server), state(GET_HASH), outgoing(0),
-    remaining_file(-1), file("")
+    remaining_file(-1)
 {
     std::cout << "Created connection" << std::endl;
 }
@@ -17,7 +17,7 @@ Connection::Connection(boost::asio::ip::tcp::socket s, Server *_server) :
 */
 Connection::Connection(boost::asio::ip::tcp::socket *s, Server *_server) :
      socket(s->get_io_service()), server(_server), state(GET_HASH), outgoing(1),
-     remaining_file(-1), file("")
+     remaining_file(-1)
 {
     std::cout << "Created connection" << std::endl;
 }
@@ -109,7 +109,8 @@ void Connection::read()
         [this, self](boost::system::error_code ec, std::size_t length)
         {
             if(!ec) {
-                data[length] = 0;
+                if(length != max_msg)
+                    data[length] = 0;
 				current_msg += std::string(data);
                 std::vector<std::string> split_vec;
                 boost::split(split_vec, current_msg, boost::is_any_of(msg_split_char), boost::token_compress_on);
