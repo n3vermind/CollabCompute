@@ -5,7 +5,8 @@
     polaczenia, ustawia stan na GET_HASH
 */
 Connection::Connection(boost::asio::ip::tcp::socket s, Server *_server) :
-    socket(std::move(s)), server(_server), state(GET_HASH), outgoing(false)
+    socket(std::move(s)), server(_server), state(GET_HASH), outgoing(0),
+    remaining_file(-1), file("")
 {
     std::cout << "Created connection" << std::endl;
 }
@@ -15,7 +16,8 @@ Connection::Connection(boost::asio::ip::tcp::socket s, Server *_server) :
     polaczenia, ustawia stan na GET_HASH
 */
 Connection::Connection(boost::asio::ip::tcp::socket *s, Server *_server) :
-     socket(s->get_io_service()), server(_server), state(GET_HASH), outgoing(true)
+     socket(s->get_io_service()), server(_server), state(GET_HASH), outgoing(1),
+     remaining_file(-1), file("")
 {
     std::cout << "Created connection" << std::endl;
 }
@@ -30,26 +32,27 @@ Connection::~Connection()
 
 /*
     Inicjuje polaczenie z danym endpointem, pyta, czy
-    jestesmy jego poprzednikiem
+    jestesmy jego poprzednikiem lub wysyla VOLUNTEER
 */
-void Connection::init(boost::asio::ip::tcp::resolver::iterator endpoint)
+void Connection::init(boost::asio::ip::tcp::resolver::iterator endpoint, int cmd)
 {
     auto self = shared_from_this();
     boost::asio::async_connect(socket, endpoint,
-        [this, self](boost::system::error_code ec, boost::asio::ip::tcp::resolver::iterator)
+        [this, self, cmd](boost::system::error_code ec, boost::asio::ip::tcp::resolver::iterator)
         {
             if(!ec)
             {
-                start(true);
+                start(cmd);
             }
         });
 }
 
 /*
-    Wysyla nasz identyfikator, jezeli propose == true
-    to pyta, czy jestesmy poprzednikiem
+    Wysyla nasz identyfikator, jezeli propose == 1
+    to pyta, czy jestesmy poprzednikiem, jezeli
+    propose == 2 to wysyla VOLUNTEER
 */
-void Connection::start(bool propose)
+void Connection::start(int propose)
 {
     if(propose)
         std::cout << "Connected to : ";
@@ -58,8 +61,11 @@ void Connection::start(bool propose)
     std::cout << get_address() << std::endl;
     read();
     write(server->get_hash());
-    if(propose)
+    if(propose == 1)
         write(std::to_string(PREVIOUS));
+    if(propose == 2)
+        write(std::to_string(VOLUNTEER));
+    outgoing = propose;
 }
 
 /*
@@ -130,6 +136,10 @@ void Connection::read()
                                     state = REDIRECT;
                                     break;
                                 case VOLUNTEER:
+                                    write(std::to_string(server->get_file_size()));
+                                    write(server->get_file());
+                                    state = SENT;
+                                    end();
                                     break;
                                 case SEARCH:
                                     state = SEARCH;
@@ -139,8 +149,10 @@ void Connection::read()
 						case GET_HASH:
 							con_hash = msg_queue.front();
                             server->add_peer(get_address());
-                            if(outgoing)
+                            if(outgoing == 1)
                                 state = PROPOSED;
+                            else if(outgoing == 2)
+                                state = VOLUNTEER;
                             else
     							state = AWAIT_QUERY;
 							break;
@@ -157,12 +169,33 @@ void Connection::read()
                             server->connect_to(msg_queue.front());
                         case SEARCH:
                             command_strings.push_back(msg_queue.front());
+
                             if(command_strings.size() == 2) {
                                 int ttl = std::stoi(command_strings[1]);
+
+                                if(command_strings[0] == "ME")
+                                    command_strings[0] = get_address();
+
                                 if(ttl > 0)
-                                    server->search_for_volunteers(command_strings[0], ttl-1);
+                                        server->search_for_volunteers(command_strings[0], ttl-1);
+                                server->connect_to(command_strings[0], 2);
+
                                 command_strings.clear();
                                 state = AWAIT_QUERY;
+                            }
+                            break;
+                        case VOLUNTEER:
+                            if(remaining_file == -1) {
+                                remaining_file = std::stoi(msg_queue.front());
+                            } else {
+                                file += msg_queue.front();
+                                remaining_file -= msg_queue.front().length();
+                                if(remaining_file > 0)
+                                    file += msg_split_char;
+                                else {
+                                    remaining_file = -1;
+
+                                }
                             }
                             break;
     				}
@@ -232,7 +265,8 @@ std::string Connection::get_hash()
 /*
     Zwraca adres drugiego konca polaczenia
 */
-std::string Connection::get_address() {
+std::string Connection::get_address()
+{
     return socket.remote_endpoint().address().to_string();
 }
 

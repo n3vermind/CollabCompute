@@ -172,10 +172,10 @@ void Server::find_next()
 /*
     Laczy sie z podanym adresem, tworzy nowy obiekt Connection
 */
-void Server::connect_to(std::string address)
+void Server::connect_to(std::string address, int what)
 {
 	auto endpoint = resolver.resolve({ address, std::to_string(port) });
-    std::make_shared<Connection>(&socket, this)->init(endpoint);
+    std::make_shared<Connection>(&socket, this)->init(endpoint, what);
 }
 
 /*
@@ -188,4 +188,36 @@ void Server::search_for_volunteers(std::string who, int ttl)
         return ptr->search_for_volunteers(who, ttl);
     restore_next();
     search_for_volunteers(who, ttl);
+}
+
+/*
+    Otwiera i wczytuje do std::string file podany plik
+*/
+void Server::read_file(std::string path)
+{
+	boost::filesystem::path file_name(path);
+	if(!boost::filesystem::exists(file_name) || !boost::filesystem::is_regular_file(file_name))
+		throw std::runtime_error("File is missing");
+	boost::filesystem::fstream file_stream;
+	file_stream.open(file_name, boost::filesystem::fstream::in);
+
+    std::stringstream sstr;
+    sstr << file_stream.rdbuf();
+    file = sstr.str();
+}
+
+/*
+    Zwraca std::string file
+*/
+int Server::get_file_size()
+{
+    return file.length();
+}
+
+/*
+    Zwraca dlugosc pliku
+*/
+std::string Server::get_file()
+{
+    return file;
 }

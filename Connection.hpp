@@ -17,8 +17,8 @@ class Connection :
         Connection(boost::asio::ip::tcp::socket s, Server *_server);
         Connection(boost::asio::ip::tcp::socket *s, Server *_server);
         ~Connection();
-        void init(boost::asio::ip::tcp::resolver::iterator endpoint);
-        void start(bool propose = false);
+        void init(boost::asio::ip::tcp::resolver::iterator endpoint, int cmd);
+        void start(int propose = 0);
         std::string get_address();
 		std::string get_hash();
 		void end();
@@ -40,9 +40,11 @@ class Connection :
         std::queue< std::string > msg_queue;
         const std::string msg_split_char = "~";
 		enum packets { GET_HASH, AWAIT_QUERY, PREVIOUS, ACCEPTED, PROPOSED,
-            REDIRECT, VOLUNTEER, TRANSFERED, SEARCH };
+            REDIRECT, VOLUNTEER, SENT, SEARCH };
 		std::vector< std::string > command_strings;
 		packets state;
-        bool outgoing;
+        int outgoing;
+        int remaining_file;
+        std::string file;
 };
 
