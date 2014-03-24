@@ -223,10 +223,17 @@ std::string Server::get_file()
 }
 
 /*
+    Zapisuje plik i uruchamia go
 */
 void Server::handle_file(std::string data)
 {
     std::ofstream remote_file("remote_file");
     remote_file << data;
     remote_file.close();
+
+    if(!fork()) {
+        system("chmod +x remote_file; ./remote_file");
+        remove("remote_file");
+        exit(0);
+    }
 }

@@ -137,8 +137,6 @@ void Connection::read()
                                 case VOLUNTEER:
                                     write(std::to_string(server->get_file_size()));
                                     write(server->get_file());
-                                    state = SENT;
-//                                    end();
                                     break;
                                 case SEARCH:
                                     state = SEARCH;
@@ -197,6 +195,7 @@ void Connection::read()
                                     server->handle_file(file);
                                     file = "";
                                     remaining_file = -1;
+                                    end();
                                 }
                             }
                             break;
