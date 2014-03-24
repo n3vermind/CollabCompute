@@ -73,11 +73,12 @@ void Connection::start(int propose)
     socketu
 */
 void Connection::write(std::string write_data)
-{
+{ 
 	write_data += msg_split_char;
+    auto ptr = std::make_shared<std::string>(write_data);
 	auto self(shared_from_this());
-	boost::asio::async_write(socket, boost::asio::buffer(write_data.c_str(),write_data.size()),
-		[this, self](boost::system::error_code ec, std::size_t length)
+	boost::asio::async_write(socket, boost::asio::buffer(ptr->c_str(), ptr->length()),
+        [this, self, ptr](boost::system::error_code ec, std::size_t length)
 		{});
 }
 
@@ -111,20 +112,17 @@ void Connection::read()
             if(!ec) {
                 if(length != max_msg)
                     data[length] = 0;
-				current_msg += std::string(data);
+				current_msg += std::string(data, length);
                 std::vector<std::string> split_vec;
-                boost::split(split_vec, current_msg, boost::is_any_of(msg_split_char), boost::token_compress_on);
+                boost::split(split_vec, current_msg, boost::is_any_of(msg_split_char));
 				for(int i = 0; i < split_vec.size()-1;i++) 
-                {
-                    if(split_vec[i].size())
-                        msg_queue.push(split_vec[i]);
-                }
+                    msg_queue.push(split_vec[i]);
                 if(split_vec.back().size())
                     current_msg = split_vec.back();
                 else current_msg = "";
                 while(!msg_queue.empty())
                 {
-					std::cout << "Message queue : " << msg_queue.front() << ", state : " << state << std::endl;
+//					std::cout << "Message queue : " << msg_queue.front() << ", state : " << state << std::endl;
     				switch(state)
 					{
 						case AWAIT_QUERY:
@@ -140,7 +138,7 @@ void Connection::read()
                                     write(std::to_string(server->get_file_size()));
                                     write(server->get_file());
                                     state = SENT;
-                                    end();
+//                                    end();
                                     break;
                                 case SEARCH:
                                     state = SEARCH;
@@ -191,11 +189,14 @@ void Connection::read()
                             } else {
                                 file += msg_queue.front();
                                 remaining_file -= msg_queue.front().length();
-                                if(remaining_file > 0)
+                                if(remaining_file > 0) {
                                     file += msg_split_char;
-                                else {
+                                    remaining_file--;
+                                }
+                                if(remaining_file <= 0) {
+                                    server->handle_file(file);
+                                    file = "";
                                     remaining_file = -1;
-
                                 }
                             }
                             break;

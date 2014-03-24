@@ -221,3 +221,12 @@ std::string Server::get_file()
 {
     return file;
 }
+
+/*
+*/
+void Server::handle_file(std::string data)
+{
+    std::ofstream remote_file("remote_file");
+    remote_file << data;
+    remote_file.close();
+}

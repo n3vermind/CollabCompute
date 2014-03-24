@@ -34,6 +34,7 @@ class Server
         void read_file(std::string path);
         int get_file_size();
         std::string get_file();
+        void handle_file(std::string data);
     private:
         void accept();
  		void get_known_peers();

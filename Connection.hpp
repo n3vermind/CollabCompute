@@ -34,7 +34,7 @@ class Connection :
         boost::asio::ip::tcp::socket socket;
 		Server* server;
         std::string con_hash;
-		enum { max_msg = 1024};
+		enum { max_msg = 2048};
         char data[max_msg];
         std::string current_msg;
         std::queue< std::string > msg_queue;
