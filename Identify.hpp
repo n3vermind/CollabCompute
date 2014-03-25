@@ -7,7 +7,7 @@
 
 #include "sha1.hpp"
 
-class Identify {
+class Identify { // MZ
     public:
         static std::string getId();
 };

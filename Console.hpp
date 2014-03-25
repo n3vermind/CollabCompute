@@ -6,7 +6,7 @@
 
 #include "Server.hpp"
 
-class Server;
+class Server; // KK
 
 class Console
 {
@@ -18,6 +18,5 @@ class Console
 		boost::asio::posix::stream_descriptor output;
 		boost::asio::streambuf input_buffer;
 		void handle_read(const boost::system::error_code& error, std::size_t length);
-		void handle_write(const boost::system::error_code& error);
 };
 

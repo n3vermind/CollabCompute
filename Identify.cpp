@@ -1,6 +1,6 @@
 #include "Identify.hpp"
 
-std::string Identify::getId()
+std::string Identify::getId() // MZ
 {
     int s, len;
     ifreq *ifr;

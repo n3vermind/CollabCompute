@@ -6,9 +6,9 @@
 */
 Connection::Connection(boost::asio::ip::tcp::socket s, Server *_server) :
     socket(std::move(s)), server(_server), state(GET_HASH), outgoing(0),
-    remaining_file(-1)
+    remaining_file(-1) // KK
 {
-    std::cout << "Created connection" << std::endl;
+    std::cerr << "Created connection" << std::endl; 
 }
 
 /*
@@ -17,24 +17,24 @@ Connection::Connection(boost::asio::ip::tcp::socket s, Server *_server) :
 */
 Connection::Connection(boost::asio::ip::tcp::socket *s, Server *_server) :
      socket(s->get_io_service()), server(_server), state(GET_HASH), outgoing(1),
-     remaining_file(-1)
+     remaining_file(-1)  // KK
 {
-    std::cout << "Created connection" << std::endl;
+    std::cerr << "Created connection" << std::endl; 
 }
 
 /*
     Destruktor klasy Connection
 */
-Connection::~Connection()
+Connection::~Connection() // KK
 {
-    std::cout << "Destructor for connection : " << con_hash << std::endl;
+	std::cerr << "Destroyed connection: " << con_hash << std::endl; 
 }
 
 /*
     Inicjuje polaczenie z danym endpointem, pyta, czy
     jestesmy jego poprzednikiem lub wysyla VOLUNTEER
 */
-void Connection::init(boost::asio::ip::tcp::resolver::iterator endpoint, int cmd)
+void Connection::init(boost::asio::ip::tcp::resolver::iterator endpoint, int cmd) // MZ
 {
     auto self = shared_from_this();
     boost::asio::async_connect(socket, endpoint,
@@ -52,13 +52,13 @@ void Connection::init(boost::asio::ip::tcp::resolver::iterator endpoint, int cmd
     to pyta, czy jestesmy poprzednikiem, jezeli
     propose == 2 to wysyla VOLUNTEER
 */
-void Connection::start(int propose)
+void Connection::start(int propose) // MZ
 {
     if(propose)
-        std::cout << "Connected to : ";
+        std::cerr << "Connected to : ";
     else
-        std::cout << "Connection from : ";
-    std::cout << get_address() << std::endl;
+        std::cerr << "Connection from : ";
+    std::cerr << get_address() << std::endl;
     read();
     write(server->get_hash());
     if(propose == 1)
@@ -72,7 +72,7 @@ void Connection::start(int propose)
     Wywoluje asynchroniczny write dla skojarzonego z obiektem
     socketu
 */
-void Connection::write(std::string write_data)
+void Connection::write(std::string write_data) // KK
 { 
 	write_data += msg_split_char;
     auto ptr = std::make_shared<std::string>(write_data);
@@ -86,7 +86,7 @@ void Connection::write(std::string write_data)
     Konczy polaczenie po wyslaniu adresu, ktory zastapil 
     to polaczenie.
 */
-void Connection::redirect(std::string address)
+void Connection::redirect(std::string address) // MZ
 {
     std::string data = std::to_string(REDIRECT) + msg_split_char + address + msg_split_char;
     auto self(shared_from_this());
@@ -105,12 +105,12 @@ void Connection::redirect(std::string address)
 */
 void Connection::read()
 {
-    auto self(shared_from_this());
+    auto self(shared_from_this());  // MZ
     socket.async_read_some(boost::asio::buffer(data, max_msg),
         [this, self](boost::system::error_code ec, std::size_t length)
         {
             if(!ec) {
-                if(length != max_msg)
+                if(length != max_msg) // KK
                     data[length] = 0;
 				current_msg += std::string(data, length);
                 std::vector<std::string> split_vec;
@@ -122,7 +122,7 @@ void Connection::read()
                 else current_msg = "";
                 while(!msg_queue.empty())
                 {
-//					std::cout << "Message queue : " << msg_queue.front() << ", state : " << state << std::endl;
+//					std::cerr << "Message queue : " << msg_queue.front() << ", state : " << state << std::endl;
     				switch(state)
 					{
 						case AWAIT_QUERY:
@@ -131,22 +131,23 @@ void Connection::read()
 								case PREVIOUS:
 									handle_prev();
 									break;
-                                case REDIRECT:
+                                case REDIRECT: // MZ
                                     state = REDIRECT;
                                     break;
                                 case VOLUNTEER:
                                     write(std::to_string(server->get_file_size()));
                                     write(server->get_file());
-                                    break;
+									std::cout << "Sending file." << std::endl;
+									break;
                                 case SEARCH:
                                     state = SEARCH;
                                     break;
 							}
 							break;
-						case GET_HASH:
+						case GET_HASH: // KK
 							con_hash = msg_queue.front();
                             server->add_peer(get_address());
-                            if(outgoing == 1)
+                            if(outgoing == 1) // MZ
                                 state = PROPOSED;
                             else if(outgoing == 2)
                                 state = VOLUNTEER;
@@ -154,11 +155,11 @@ void Connection::read()
     							state = AWAIT_QUERY;
 							break;
                         case PROPOSED:
-                            if(msg_queue.front().length() == 1 && 
+                            if(msg_queue.front().length() == 1 && // KK
                                 msg_queue.front()[0]-'0' == ACCEPTED) {
                                 server->change_next(shared_from_this());
                                 state = AWAIT_QUERY;
-                            } else {
+                            } else { // MZ
                                 server->connect_to(msg_queue.front());
                             }
                             break;
@@ -213,19 +214,19 @@ void Connection::read()
     jako Server->prev_con, wpp odpowiadamy adresem nastepnej osoby
     i konczymy polaczenie 
 */
-void Connection::handle_prev()
+void Connection::handle_prev() // KK
 {
 	if(is_good_placement(server->get_next_hash(), server->get_hash(), con_hash))
 	{
 		server->change_prev(shared_from_this());
 		write(std::to_string(ACCEPTED));
-		std::cout<< "Accepted as prev" << std::endl;
+		std::cerr<< "Accepted as prev" << std::endl;
 
 	} 
-	else 
+	else // MZ
 	{
         std::string address = server->get_next_address();
-		std::cout << "Refused as prev, redirecting to : " << address << std::endl;
+		std::cerr << "Refused as prev, redirecting to : " << address << std::endl;
         write(address);
 		end();
 	}
@@ -235,7 +236,7 @@ void Connection::handle_prev()
 /*
     Konczymy polaczenie, zamykamy socket
 */
-void Connection::end()
+void Connection::end() // KK
 {
 	boost::system::error_code ec;
 	socket.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
@@ -245,7 +246,7 @@ void Connection::end()
     Sprawdzamy, czy peer jest naszym poprzednikiem
     na podstawie identyfikatorow a i b
 */
-bool Connection::is_good_placement(std::string a, std::string b, std::string peer)
+bool Connection::is_good_placement(std::string a, std::string b, std::string peer) // KK
 {
     if(a == b)
         return true;
@@ -258,7 +259,7 @@ bool Connection::is_good_placement(std::string a, std::string b, std::string pee
 /*
     Zwraca identyfikator drugiego konca polaczenia
 */
-std::string Connection::get_hash()
+std::string Connection::get_hash() // KK
 {
 	return con_hash;
 }
@@ -266,7 +267,7 @@ std::string Connection::get_hash()
 /*
     Zwraca adres drugiego konca polaczenia
 */
-std::string Connection::get_address()
+std::string Connection::get_address() // KK
 {
     return socket.remote_endpoint().address().to_string();
 }
@@ -275,7 +276,7 @@ std::string Connection::get_address()
     Przekazuje pytanie o mozliwosc uruchomienia pliku
     wykonywalnego do nastepnika
 */
-void Connection::search_for_volunteers(std::string who, int ttl)
+void Connection::search_for_volunteers(std::string who, int ttl) // MZ
 {
     write(std::to_string(SEARCH) + msg_split_char + who + msg_split_char
          + std::to_string(ttl) + msg_split_char);

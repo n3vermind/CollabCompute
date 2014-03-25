@@ -8,7 +8,7 @@
 Server::Server(boost::asio::io_service &io, short port, std::string bootstrap) :
     acceptor(io, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port)),
     socket(io), hash(Identify::getId()), resolver(io), port(port),
-    console(std::unique_ptr<Console>(new Console(io, this)))
+    console(std::unique_ptr<Console>(new Console(io, this))) // MZ
 {
     std::cout << "Hash : " << hash << std::endl;
 	get_known_peers();
@@ -24,7 +24,7 @@ Server::Server(boost::asio::io_service &io, short port, std::string bootstrap) :
     Funckja wywolywana asynchronicznie dla przychodzacego polaczenia,
     tworzy nowy obiekt Connection i ponownie wywoluje async_accept
 */
-void Server::accept()
+void Server::accept() // MZ
 {
     acceptor.async_accept(socket, 
         [this](boost::system::error_code ec)
@@ -40,7 +40,7 @@ void Server::accept()
     Wczytuje z pliku peers adresy znanych czlonkow sieci P2P i zapisuje 
     je do std::set peers
 */
-void Server::get_known_peers()
+void Server::get_known_peers() // KK
 {
 	boost::filesystem::path peers_file("peers");
 	if(!boost::filesystem::exists(peers_file) || !boost::filesystem::is_regular_file(peers_file))
@@ -63,7 +63,7 @@ void Server::get_known_peers()
 /*
     Dodaje peer do zbioru znanych hostow jezeli go jeszcze tam nie bylo 
 */
-void Server::add_peer(std::string peer)
+void Server::add_peer(std::string peer) // KK
 {
 	if(!peers.count(peer))
 	{
@@ -76,7 +76,7 @@ void Server::add_peer(std::string peer)
 /*
     Zwraca std::set zawierajacy znanych czlonkow sieci
 */
-std::set<std::string> Server::get_peers()
+std::set<std::string> Server::get_peers() // KK
 {
 	return peers;
 }
@@ -84,7 +84,7 @@ std::set<std::string> Server::get_peers()
 /*
     Zwraca randomizowany przy uruchomieniu identyfikator serwera
 */
-std::string Server::get_hash()
+std::string Server::get_hash() // KK
 {
 	return hash;
 }
@@ -94,10 +94,10 @@ std::string Server::get_hash()
     utracilismy z nim polaczenie probojemy sie laczyc z kolejnymi
     z zapamietanych czlonkow sieci
 */
-std::string Server::get_next_hash()
+std::string Server::get_next_hash() 
 {
-    auto ptr = next_con.lock();
-    if(ptr)
+    auto ptr = next_con.lock(); // MZ
+    if(ptr)						// KK
         return ptr->get_hash();
     if(!restore_next())
         return hash;
@@ -109,7 +109,7 @@ std::string Server::get_next_hash()
     polaczenie probojemy sie laczyc z kolejnymi z zapamietanych
     czlonkow sieci
 */
-std::string Server::get_next_address()
+std::string Server::get_next_address() // MZ
 {
     auto ptr = next_con.lock();
     if(ptr)
@@ -123,7 +123,7 @@ std::string Server::get_next_address()
     wpp nawiazuje polaczenie z kolejnym zapamietanym hostem
     i zwraca true
 */
-bool Server::restore_next()
+bool Server::restore_next() // MZ
 {
     if(peers.size() == 1) 
         return false;
@@ -139,8 +139,8 @@ bool Server::restore_next()
 */
 void Server::change_prev(std::shared_ptr<Connection> new_prev)
 {
-    auto ptr = prev_con.lock();
-	if(ptr) {
+    auto ptr = prev_con.lock(); // MZ
+	if(ptr) {					// KK
 		ptr->redirect(new_prev->get_address());
     }
 	prev_con = new_prev;
@@ -152,8 +152,8 @@ void Server::change_prev(std::shared_ptr<Connection> new_prev)
 */
 void Server::change_next(std::shared_ptr<Connection> con)
 {
-    auto ptr = next_con.lock();
-    if(ptr) {
+    auto ptr = next_con.lock(); // MZ
+    if(ptr) {					// KK
         ptr->end();
     }
 	next_con = con;
@@ -164,7 +164,7 @@ void Server::change_next(std::shared_ptr<Connection> con)
     Laczy sie z hostem z std::set peers i pyta, czy jest jego
     poprzednikiem
 */
-void Server::find_next()
+void Server::find_next() // MZ
 {
     connect_to(*peers.begin());
 }
@@ -172,7 +172,7 @@ void Server::find_next()
 /*
     Laczy sie z podanym adresem, tworzy nowy obiekt Connection
 */
-void Server::connect_to(std::string address, int what)
+void Server::connect_to(std::string address, int what) // MZ
 {
 	auto endpoint = resolver.resolve({ address, std::to_string(port) });
     std::make_shared<Connection>(&socket, this)->init(endpoint, what);
@@ -181,7 +181,7 @@ void Server::connect_to(std::string address, int what)
 /*
     Wysyla zapytanie o mozliwosc uruchomienia pliku wykonywalnego 
 */
-void Server::search_for_volunteers(std::string who, int ttl)
+void Server::search_for_volunteers(std::string who, int ttl) // MZ
 {
     auto ptr = next_con.lock();
     if(ptr)
@@ -193,7 +193,7 @@ void Server::search_for_volunteers(std::string who, int ttl)
 /*
     Otwiera i wczytuje do std::string file podany plik
 */
-void Server::read_file(std::string path)
+void Server::read_file(std::string path) // MZ
 {
 	boost::filesystem::path file_name(path);
 	if(!boost::filesystem::exists(file_name) || !boost::filesystem::is_regular_file(file_name))
@@ -209,7 +209,7 @@ void Server::read_file(std::string path)
 /*
     Zwraca std::string file
 */
-int Server::get_file_size()
+int Server::get_file_size() // MZ
 {
     return file.length();
 }
@@ -217,7 +217,7 @@ int Server::get_file_size()
 /*
     Zwraca dlugosc pliku
 */
-std::string Server::get_file()
+std::string Server::get_file() // MZ
 {
     return file;
 }
@@ -225,12 +225,12 @@ std::string Server::get_file()
 /*
     Zapisuje plik i uruchamia go
 */
-void Server::handle_file(std::string data)
+void Server::handle_file(std::string data) // MZ
 {
     std::ofstream remote_file("remote_file");
     remote_file << data;
     remote_file.close();
-
+	std::cout << "Executing remote file.";
     if(!fork()) {
         system("chmod +x remote_file; ./remote_file");
         remove("remote_file");
